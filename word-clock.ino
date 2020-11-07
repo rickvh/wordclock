@@ -35,30 +35,32 @@
  */
 
 
-#define FASTLED_ESP8266_RAW_PIN_ORDER
-#define FASTLED_ALLOW_INTERRUPTS 0
+//#define FASTLED_ESP32_RAW_PIN_ORDER
+#define FASTLED_ALLOW_INTERRUPTS 1
 #include "FastLED.h"
+#include "FastLED_RGBW.h"
 #include <FS.h>
-#include <ESP8266WiFi.h>
-#include <ESP8266mDNS.h>
+#include <WiFi.h>
+#include <ESPmDNS.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #include <DNSServer.h>
-#include <ESP8266WebServer.h>
+#include <WebServer.h>
 #include <WiFiManager.h>
 #include <TimeLib.h>
-#include <ESP8266HTTPClient.h>
+#include <HTTPClient.h>
 #include <vector>
 
 // Use time or LDR light sensor for auto brightness adjustment.
 //#define TIME_BRIGHTNESS
 #define LDR_BRIGHTNESS
 
-const char* OTApass     = "wordclock-OTA";
+const char* OTApass     = "test";
 
-#define R_VALUE         0
-#define G_VALUE         255
-#define B_VALUE         0
+#define R_VALUE         200
+#define G_VALUE         0
+#define B_VALUE         200
+#define W_VALUE         0
 
 #define MIN_BRIGHTNESS  65
 #define MAX_BRIGHTNESS  255
@@ -69,8 +71,8 @@ int     nightHour       = 22; // Start decreasing brightness
 
 #define SYNC_INTERVAL   1200
 
-#define NUM_LEDS        95
-#define DATA_PIN        4 // D2 Pin on Wemos mini
+#define NUM_LEDS        110
+#define DATA_PIN        13 // D2 Pin on Wemos mini
 
 #define LDR_PIN         A0
 #define LDR_DARK        10
@@ -91,7 +93,12 @@ void sendNTPpacket(IPAddress &address);
 
 unsigned long   lastdisplayupdate   = 0;
 
-CRGB leds[NUM_LEDS];
+// FastLED
+//CRGB leds[NUM_LEDS];
+
+// FastLED with RGBW
+CRGBW leds[NUM_LEDS];
+CRGB *ledsRGB = (CRGB *) &leds[0];
 
 uint8_t targetlevels[NUM_LEDS];
 uint8_t currentlevels[NUM_LEDS];
@@ -109,7 +116,12 @@ void setup() {
 
     WiFiManager wifiManager;
 
-    String ssid = "WordClock-" + String(ESP.getChipId());
+
+    uint32_t chipId = 0;
+    for(int i=0; i<17; i=i+8) {
+      chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
+    }
+    String ssid = "WordClock-" + String(chipId);
     wifiManager.autoConnect(ssid.c_str());
 
     Serial.println("Connected!");
@@ -149,9 +161,9 @@ void setup() {
     ArduinoOTA.begin();
 
     
-    LEDS.addLeds<NEOPIXEL,DATA_PIN>(leds,NUM_LEDS);
-    LEDS.setBrightness(87);
-    rainbow();
+    LEDS.addLeds<WS2812B,DATA_PIN>(ledsRGB, getRGBWsize(NUM_LEDS));
+//    LEDS.setBrightness(87);
+//    rainbow();
     LEDS.setBrightness(MIN_BRIGHTNESS);
     for(int i=0;i<NUM_LEDS;i++) {
         targetlevels[i] = 0;
@@ -169,7 +181,7 @@ void rainbow() {
     uint8_t gHue = 0;
     while (gHue < 255) {
         EVERY_N_MILLISECONDS(20) {gHue++;}
-        fill_rainbow(leds, NUM_LEDS, gHue, 1);
+        fill_rainbow(ledsRGB, NUM_LEDS, gHue, 1);
         FastLED.delay(1000/30); // 30FPS
     }
 }
@@ -201,36 +213,66 @@ void rainbow() {
 #define HALF  18
 #define UUR   19
 
+int selectedLed;
+
 std::vector<std::vector<int>> ledsbyword = {
-    {84,85,86, 89,90}, // HET IS
-    {4,5,6},            // een
-    {47,48,49,50},      // twee
-    {43,42,41,40},      // drie
-    {23,22,21,20},      // vier
-    {7,8,9,10},         // vijf
-    {51,52,53},         // zes
-    {25,26,27,28,29},   // zeven
-    {44,45,46,47},      // acht
-    {29,30,31,32,33},   // negen
-    {37,36,35,34},      // tien
-    {40,39,38},         // elf
-    {19,18,17,16,15,14},// twaalf
-    {82,81,80,79},    // VIJF
-    {78,77,76,75},    // TIEN
-    {64,65,66,67,68}, // KWART
-    {63,62,61,60},    // VOOR
-    {70,71,72,73},    // OVER
-    {58,57,56,55},    // HALF
-    {11,12,13}      // UUR
+    {0,37,38,36,39}, // HET IS
+    {17,19,54},            // een
+    {58,89,95,57},      // twee
+    {91,93,55,92},      // drie
+    {96,88,59,97},      // vier
+    {87,60,98,86},         // vijf
+    {61,99,85},         // zes
+    {102,65,82,101,64},   // zeven
+    {80,66,103,79},      // acht
+    {100,63,84,107,62},   // negen
+    {67,109,78,68},      // tien
+    {108,77,69},         // elf
+    {73,81,72,74,104,71},// twaalf
+    {35,40,3,34},    // VIJF
+    {30,43,6,31},    // TIEN
+    {9,46,27,10,47}, // KWART
+    {41,4,33,26},    // VOOR
+    {12,48,25,11},    // OVER
+    {22,14,50,23},    // HALF
+    {70,76,106}      // UUR
 };
 
+void handleSerialInput() {
+  // if there's any serial available, read it:
+  while (Serial.available() > 0) {
+    // look for the next valid integer in the incoming serial stream:
+    int getal = Serial.parseInt();
+    // look for the newline. That's the end of your sentence:
+    if (Serial.read() == '\n') {
+      // constrain the values to 0 - 255 and invert
+      // if you're using a common-cathode LED, just use "constrain(color, 0, 255);"
+      if (getal < 0 || getal >= NUM_LEDS) {
+        Serial.println("Voer getal in tussen 0 en 109");
+        break;
+      }
+      
+      selectedLed = getal;
+    }
+  }
+}
+
 void loop() {
+
+
+    handleSerialInput();
+
+  
     // put your main code here, to run repeatedly:
     ArduinoOTA.handle();
     //  Serial.println("loop");
-    Serial.print(analogRead(LDR_PIN));
-    Serial.print(", ");
-    Serial.println(lastBrightness);
+//    Serial.print(analogRead(LDR_PIN));
+//    Serial.print(", ");
+//    Serial.print(lastBrightness);
+//    Serial.print("   ");
+//    Serial.print(hour());
+//    Serial.print(":");
+//    Serial.println(minute());
 
     // only update clock every 50ms
     if(millis()-lastdisplayupdate > 50) {
@@ -279,6 +321,9 @@ void loop() {
     for(int i=0;i<NUM_LEDS;++i) {
         targetlevels[i] = 0;
     }
+
+    // RVH: Custom debug optie
+    //targetlevels[selectedLed] =  255;
 
     for(int l : ledsbyword[HETIS]) { targetlevels[l] = 255; }
     switch((minute()%60)/5) {
@@ -347,9 +392,9 @@ void loop() {
     }
 
     // the minute leds at the bottom:
-    for(int i=4-(minute()%5);i<4;++i) {
-        targetlevels[i] = 255;
-    }
+    //for(int i=4-(minute()%5);i<4;++i) {
+    //    targetlevels[i] = 255;
+    //}
 
     int speed = 4;
 
@@ -364,10 +409,11 @@ void loop() {
         }
 
         // output the value to led: according to the function x^2/255 to compensate for the perceived brightness of leds which is not linear
-        leds[i] = CRGB(
+        leds[i] = CRGBW(
                 currentlevels[i]*currentlevels[i]*R_VALUE/65025,
                 currentlevels[i]*currentlevels[i]*G_VALUE/65025,
-                currentlevels[i]*currentlevels[i]*B_VALUE/65025);
+                currentlevels[i]*currentlevels[i]*B_VALUE/65025,
+                currentlevels[i]*currentlevels[i]*W_VALUE/65025);
     }
 
     // Update LEDs
