@@ -52,8 +52,8 @@
 #include <vector>
 
 // Use time or LDR light sensor for auto brightness adjustment.
-//#define TIME_BRIGHTNESS
-#define LDR_BRIGHTNESS
+#define TIME_BRIGHTNESS
+//#define LDR_BRIGHTNESS
 
 const char* OTApass     = "test";
 
@@ -62,7 +62,7 @@ const char* OTApass     = "test";
 #define B_VALUE         200
 #define W_VALUE         0
 
-#define MIN_BRIGHTNESS  65
+#define MIN_BRIGHTNESS  10
 #define MAX_BRIGHTNESS  255
 #define BRIGHTNESS      255 // legacy, keep at 255
 int     lastBrightness  =  MIN_BRIGHTNESS;
@@ -208,10 +208,12 @@ void rainbow() {
 #define VIJF  13
 #define TIEN  14
 #define KWART 15
-#define VOOR  16
-#define OVER  17
+#define VOOR1  16
+#define OVER1  17
 #define HALF  18
 #define UUR   19
+#define VOOR2 20
+#define OVER2 21
 
 int selectedLed;
 
@@ -232,10 +234,12 @@ std::vector<std::vector<int>> ledsbyword = {
     {35,40,3,34},    // VIJF
     {30,43,6,31},    // TIEN
     {9,46,27,10,47}, // KWART
-    {41,4,33,26},    // VOOR
-    {12,48,25,11},    // OVER
+    {41,4,33,26},    // VOOR1
+    {7,44,29,8},    // OVER1
     {22,14,50,23},    // HALF
-    {70,76,106}      // UUR
+    {70,76,106},      // UUR
+    {51,15,21,52},          // VOOR2
+    {12,48,25,11}          // OVER2
 };
 
 void handleSerialInput() {
@@ -333,28 +337,28 @@ void loop() {
             break;
         case 1:
             for(int l : ledsbyword[VIJF])         { targetlevels[l] = 255; }
-            for(int l : ledsbyword[OVER])         { targetlevels[l] = 255; }
+            for(int l : ledsbyword[OVER1])         { targetlevels[l] = 255; }
             for(int l : ledsbyword[current_hourword]) { targetlevels[l] = 255; }
             break;
         case 2:
             for(int l : ledsbyword[TIEN])         { targetlevels[l] = 255; }
-            for(int l : ledsbyword[OVER])         { targetlevels[l] = 255; }
+            for(int l : ledsbyword[OVER2])         { targetlevels[l] = 255; }
             for(int l : ledsbyword[current_hourword])   { targetlevels[l] = 255; }
             break;
         case 3:
             for(int l : ledsbyword[KWART])        { targetlevels[l] = 255; }
-            for(int l : ledsbyword[OVER])         { targetlevels[l] = 255; }
+            for(int l : ledsbyword[OVER2])         { targetlevels[l] = 255; }
             for(int l : ledsbyword[current_hourword])   { targetlevels[l] = 255; }
             break;
         case 4:
             for(int l : ledsbyword[TIEN])         { targetlevels[l] = 255; }
-            for(int l : ledsbyword[VOOR])         { targetlevels[l] = 255; }
+            for(int l : ledsbyword[VOOR1])         { targetlevels[l] = 255; }
             for(int l : ledsbyword[HALF])         { targetlevels[l] = 255; }
             for(int l : ledsbyword[next_hourword])    { targetlevels[l] = 255; }
             break;
         case 5:
             for(int l : ledsbyword[VIJF])         { targetlevels[l] = 255; }
-            for(int l : ledsbyword[VOOR])         { targetlevels[l] = 255; }
+            for(int l : ledsbyword[VOOR1])         { targetlevels[l] = 255; }
             for(int l : ledsbyword[HALF])         { targetlevels[l] = 255; }
             for(int l : ledsbyword[next_hourword])    { targetlevels[l] = 255; }
             break;
@@ -364,29 +368,29 @@ void loop() {
             break;
         case 7:
             for(int l : ledsbyword[VIJF])         { targetlevels[l] = 255; }
-            for(int l : ledsbyword[OVER])         { targetlevels[l] = 255; }
+            for(int l : ledsbyword[OVER1])         { targetlevels[l] = 255; }
             for(int l : ledsbyword[HALF])         { targetlevels[l] = 255; }
             for(int l : ledsbyword[next_hourword])    { targetlevels[l] = 255; }
             break;
         case 8:
             for(int l : ledsbyword[TIEN])         { targetlevels[l] = 255; }
-            for(int l : ledsbyword[OVER])         { targetlevels[l] = 255; }
+            for(int l : ledsbyword[OVER1])         { targetlevels[l] = 255; }
             for(int l : ledsbyword[HALF])         { targetlevels[l] = 255; }
             for(int l : ledsbyword[next_hourword])    { targetlevels[l] = 255; }
             break;
         case 9:
             for(int l : ledsbyword[KWART])        { targetlevels[l] = 255; }
-            for(int l : ledsbyword[VOOR])         { targetlevels[l] = 255; }
+            for(int l : ledsbyword[VOOR2])         { targetlevels[l] = 255; }
             for(int l : ledsbyword[next_hourword])    { targetlevels[l] = 255; }
             break;
         case 10:
             for(int l : ledsbyword[TIEN])         { targetlevels[l] = 255; }
-            for(int l : ledsbyword[VOOR])         { targetlevels[l] = 255; }
+            for(int l : ledsbyword[VOOR1])         { targetlevels[l] = 255; }
             for(int l : ledsbyword[next_hourword])    { targetlevels[l] = 255; }
             break;
         case 11:
             for(int l : ledsbyword[VIJF])         { targetlevels[l] = 255; }
-            for(int l : ledsbyword[VOOR])         { targetlevels[l] = 255; }
+            for(int l : ledsbyword[VOOR2])         { targetlevels[l] = 255; }
             for(int l : ledsbyword[next_hourword])    { targetlevels[l] = 255; }
             break;
     }
