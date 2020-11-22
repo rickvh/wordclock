@@ -57,17 +57,22 @@
 
 const char* OTApass     = "test";
 
-#define R_VALUE         200
-#define G_VALUE         0
-#define B_VALUE         200
+#define R_VALUE         0
+#define G_VALUE         160
+#define B_VALUE         160
 #define W_VALUE         0
 
-#define MIN_BRIGHTNESS  10
-#define MAX_BRIGHTNESS  255
+#define R_VALUE_2         200
+#define G_VALUE_2         200
+#define B_VALUE_2         0
+#define W_VALUE_2         0
+
+#define MIN_BRIGHTNESS  15
+#define MAX_BRIGHTNESS  140
 #define BRIGHTNESS      255 // legacy, keep at 255
 int     lastBrightness  =  MIN_BRIGHTNESS;
 int     dayHour         = 8; // Start increasing brightness
-int     nightHour       = 22; // Start decreasing brightness
+int     nightHour       = 17; // Start decreasing brightness
 
 #define SYNC_INTERVAL   1200
 
@@ -148,6 +153,13 @@ void setup() {
             });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
             Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+            int led = (progress / (total / NUM_LEDS));
+            for(int i=0;i<led;i++) {
+                targetlevels[i] = MAX_BRIGHTNESS;
+                currentlevels[i] = MAX_BRIGHTNESS;
+                leds[i] = CRGB::Red;
+            }
+            FastLED.show();
             });
     ArduinoOTA.onError([](ota_error_t error) {
             Serial.printf("Error[%u]: ", error);
@@ -420,6 +432,19 @@ void loop() {
                 currentlevels[i]*currentlevels[i]*W_VALUE/65025);
     }
 
+    // FIX 2e kleur
+    for(int uur = 1; uur <=12; uur++) {
+        for(int l : ledsbyword[uur]) {
+            if (currentlevels[l] > 0) {
+                leds[l] = CRGBW(
+                  currentlevels[l]*currentlevels[l]*R_VALUE_2/65025,
+                  currentlevels[l]*currentlevels[l]*G_VALUE_2/65025,
+                  currentlevels[l]*currentlevels[l]*B_VALUE_2/65025,
+                  currentlevels[l]*currentlevels[l]*W_VALUE_2/65025);
+            }
+        }
+    }
+    
     // Update LEDs
     FastLED.show();
 }
