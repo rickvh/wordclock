@@ -1,40 +1,3 @@
-/****************************************
- * Word clock
- * 
- * Fork of code from https://bitbucket.org/vdham/wordclock/
- * Dutch clockface
- * 
- *                                     +5V
- *                                      ^
- *               WEMOS D1 mini V2       |
- *              +-----------------+     |
- *  +-----------+3V3            5V+-----+------+ POS
- *  |           |                 |                  Power jack
- *  |           |              GND+-----+------+ NEG
- * +++          |                 |     |                        ^
- * | | LDR      |                 |     |                        |
- * | |          |                 |     v                       --- 1000uF
- * +++          |                 |    GND                      ---
- *  |           |                 |         +5V                  |
- * +++          |                 |          ^                   v
- * | | 1k8      |                 |          |  +--------------
- * | |          |                 |          +--+ +5V
- * +++          |                 |   +---+     |
- *  |           |                 +---+   +-----+ DIN   WS2812b LED strip
- *  +-----------+A0               |   +---+     |       95 LEDs
- *  |           +-----------------+          +--+ GND
- * +++                                       |  +--------------
- * | | 820                                   v
- * | |                                      GND
- * +++
- *  |
- *  v
- * GND
- * 
- * 
- */
-
-
 //#define FASTLED_ESP32_RAW_PIN_ORDER
 #define FASTLED_ALLOW_INTERRUPTS 1
 #include "FastLED.h"
@@ -55,16 +18,49 @@
 #define TIME_BRIGHTNESS
 //#define LDR_BRIGHTNESS
 
+
+struct Pixelreeks {
+  CRGBW color;
+  std::vector<int> pixels;
+
+  Pixelreeks(CRGBW color, std::vector<int> pixels) {
+    this->color = color;
+    this->pixels = pixels;  
+  }
+};
+
+typedef std::vector<Pixelreeks> t_image;
+
+#define KERSTBOOM 0
+#define SNEEUWPOP 1
+
+t_image images[] = {
+  // Kerstboom 
+  {
+    Pixelreeks(CRGBW(255, 255, 0, 0), {39}),
+    Pixelreeks(CRGBW(0, 255, 0, 0), {5,28,49,20,94,60,83,109,45,9,52,16,53,17,59,97,87,98,86,61,66,103,79,67,78,68,108,77}),
+    Pixelreeks(CRGBW(255, 0, 0, 0), {71})
+  },
+
+  // Sneeuwpop
+  {
+    Pixelreeks(CRGBW(0, 0, 255, 0), {39,42,5,32}),
+    Pixelreeks(CRGBW(0, 0, 0, 200), {45,28,9,13,49,24,90,94,56,97,87,60,98,86,101,64,83,100,63,79,67,109,78,68,104,71,75}),
+    Pixelreeks(CRGBW(255, 0, 0, 0), {95,52,16,20,53})
+  }
+};
+
+
 const char* OTApass     = "test";
 
-#define R_VALUE         0
-#define G_VALUE         160
-#define B_VALUE         160
+#define R_VALUE         0 //0
+#define G_VALUE         255 //160
+#define B_VALUE         0 //160
 #define W_VALUE         0
 
-#define R_VALUE_2         200
-#define G_VALUE_2         200
-#define B_VALUE_2         0
+#define R_VALUE_2         255 //200
+#define G_VALUE_2         0 //200
+#define B_VALUE_2         0 //0
 #define W_VALUE_2         0
 
 #define MIN_BRIGHTNESS  15
@@ -227,6 +223,10 @@ void rainbow() {
 #define VOOR2 20
 #define OVER2 21
 
+#define PIEK 0
+#define BOOM 1
+#define STAM 2
+
 int selectedLed;
 
 std::vector<std::vector<int>> ledsbyword = {
@@ -253,6 +253,7 @@ std::vector<std::vector<int>> ledsbyword = {
     {51,15,21,52},          // VOOR2
     {12,48,25,11}          // OVER2
 };
+
 
 void handleSerialInput() {
   // if there's any serial available, read it:
@@ -323,9 +324,29 @@ void loop() {
         return;
     }
 
+    
     time_t t = now();
 
-    // calculate target brightnesses:
+//    int imageCount = second() / 15;
+
+//    if (hour() >= 22 || hour() <= 7)
+//      imageCount = 0;
+//
+//    if (imageCount == 1) {
+//      showImage(0);
+//    } else if (imageCount == 3) {
+//      showImage(1);
+//    } else {
+      showKlok();
+//    }
+    
+    
+    // Update LEDs
+    FastLED.show();
+}
+
+void showKlok() {
+      // calculate target brightnesses:
     int current_hourword = hour();
     if(current_hourword>12) current_hourword = current_hourword - 12; // 12 hour clock, where 12 stays 12 and 13 becomes one
     if(current_hourword==0) current_hourword = 12;            // 0 is also called 12
@@ -334,9 +355,32 @@ void loop() {
     if(next_hourword>12) next_hourword = next_hourword - 12;      // 12 hour clock, where 12 stays 12 and 13 becomes one
     if(next_hourword==0) next_hourword = 12;              // 0 is also called 12
 
+
+    int speed = 2;
+  
+  
+    // move current brightness towards target brightness:
     for(int i=0;i<NUM_LEDS;++i) {
+        if(currentlevels[i] < targetlevels[i]) {
+            currentlevels[i] = std::min(BRIGHTNESS,currentlevels[i]+speed);
+        }
+        if(currentlevels[i] > targetlevels[i]) {
+            currentlevels[i] = std::max(0,currentlevels[i]-speed);
+        }
+
+        // output the value to led: according to the function x^2/255 to compensate for the perceived brightness of leds which is not linear
+        leds[i] = CRGBW(
+                currentlevels[i]*currentlevels[i]*R_VALUE/65025,
+                currentlevels[i]*currentlevels[i]*G_VALUE/65025,
+                currentlevels[i]*currentlevels[i]*B_VALUE/65025,
+                currentlevels[i]*currentlevels[i]*W_VALUE/65025);
+    }
+
+
+    for(int i=0;i<NUM_LEDS;i++) {
         targetlevels[i] = 0;
     }
+
 
     // RVH: Custom debug optie
     //targetlevels[selectedLed] =  255;
@@ -407,32 +451,17 @@ void loop() {
             break;
     }
 
+
+    showKlokUpdateKleur();
+    
     // the minute leds at the bottom:
     //for(int i=4-(minute()%5);i<4;++i) {
     //    targetlevels[i] = 255;
-    //}
+    //}  
+}
 
-    int speed = 4;
-
-
-    // move current brightness towards target brightness:
-    for(int i=0;i<NUM_LEDS;++i) {
-        if(currentlevels[i] < targetlevels[i]) {
-            currentlevels[i] = std::min(BRIGHTNESS,currentlevels[i]+speed);
-        }
-        if(currentlevels[i] > targetlevels[i]) {
-            currentlevels[i] = std::max(0,currentlevels[i]-speed);
-        }
-
-        // output the value to led: according to the function x^2/255 to compensate for the perceived brightness of leds which is not linear
-        leds[i] = CRGBW(
-                currentlevels[i]*currentlevels[i]*R_VALUE/65025,
-                currentlevels[i]*currentlevels[i]*G_VALUE/65025,
-                currentlevels[i]*currentlevels[i]*B_VALUE/65025,
-                currentlevels[i]*currentlevels[i]*W_VALUE/65025);
-    }
-
-    // FIX 2e kleur
+void showKlokUpdateKleur() {
+  // FIX 2e kleur
     for(int uur = 1; uur <=12; uur++) {
         for(int l : ledsbyword[uur]) {
             if (currentlevels[l] > 0) {
@@ -444,9 +473,30 @@ void loop() {
             }
         }
     }
-    
-    // Update LEDs
-    FastLED.show();
+
+    // FIX 'het is'
+     for(int l : ledsbyword[0]) {
+        if (currentlevels[l] > 0) {
+            leds[l] = CRGBW(
+              currentlevels[l]*currentlevels[l]*0/65025,
+              currentlevels[l]*currentlevels[l]*0/65025,
+              currentlevels[l]*currentlevels[l]*0/65025,
+              currentlevels[l]*currentlevels[l]*200/65025);
+        }
+    }
+}
+
+void showImage(int index) {
+    for(int i=0;i<NUM_LEDS;++i){ //blank rest
+      targetlevels[i] = 0;
+      leds[i] = CRGB::Black;
+    }
+
+    for (auto & reeks : images[index]) {
+      for (int l : reeks.pixels) {
+        leds[l] = reeks.color;
+      }
+    }
 }
 
 /*-------- NTP code ----------*/
