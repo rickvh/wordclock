@@ -327,18 +327,18 @@ void loop() {
     
     time_t t = now();
 
-//    int imageCount = second() / 15;
+    int imageCount = second() / 15;
 
-//    if (hour() >= 22 || hour() <= 7)
-//      imageCount = 0;
-//
-//    if (imageCount == 1) {
-//      showImage(0);
-//    } else if (imageCount == 3) {
-//      showImage(1);
-//    } else {
+    if (hour() >= 22 || hour() <= 7)
+      imageCount = 0;
+
+    if (imageCount == 1) {
+      showImage(0);
+    } else if (imageCount == 3) {
+      showImage(1);
+    } else {
       showKlok();
-//    }
+    }
     
     
     // Update LEDs
